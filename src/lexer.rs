@@ -1,4 +1,5 @@
+use std::fs;
 
-pub fn scan_file() {
+pub fn scan_file(path: &str) {
     
 }
