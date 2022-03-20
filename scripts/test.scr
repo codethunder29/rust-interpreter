@@ -1,1 +1,6 @@
-a = 123456.gjhgjh
+ var a = 1000.0;
+
+/* i'm a comment
+if a > 1000 {
+    print "hello world";
+} */

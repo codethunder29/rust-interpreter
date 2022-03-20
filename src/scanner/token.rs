@@ -1,34 +1,65 @@
 #[derive(Debug)]
 pub enum TokenType {
     // characters tokens
-    LeftParen, RightParen, LeftBrace, RightBrace,
-    Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
-    Bang, BangEqual, Equal, EqualEqual, Greater,
-    GreaterEqual, Less, LessEqual,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Slash,
+    Star,
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
 
     // literals
-    Identifier, String, Number,
+    Identifier,
+    String,
+    Number,
+    Bool,
 
     // key words
-    If, Else, Class, True, False, Fn, For, While, Null,
-    Print, Return, Super, This, Var, And, Or,
+    If,
+    Else,
+    Class,
+    Fn,
+    For,
+    While,
+    Null,
+    Print,
+    Return,
+    Super,
+    This,
+    Var,
+    And,
+    Or,
 
-    Eof
+    Eof,
 }
 
 #[derive(Debug)]
 pub enum LiteralValue {
     Int(i64),
     Float(f64),
-    Str(String)
+    Str(String),
+    Bool(bool),
 }
 
 #[derive(Debug)]
 pub struct Token {
-    pub ttype: TokenType,  // cant use type because its a keyword (ttype = token_type)
+    pub ttype: TokenType, // cant use type because its a keyword (ttype = token_type)
     pub lexeme: String,
     pub literal: Option<LiteralValue>,
-    pub line: u32
+    pub line: u32,
 }
 
 impl Token {

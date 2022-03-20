@@ -1,5 +1,5 @@
 use std::env;
-use std::io::{Write, stdin, stdout};
+use std::io::{stdin, stdout, Write};
 use std::process;
 
 mod scanner;
@@ -10,17 +10,13 @@ fn main() {
     if args.len() > 2 {
         println!("Usage:\ninterpeter <script_path>");
         process::exit(1);
-    }
-    else if args.len() == 1 {
+    } else if args.len() == 1 {
         run_prompt();
-    }
-    else {
-        // interpeter::run_file(&args[1]);
+    } else {
         let mut scanner = scanner::Scanner::new(&args[1]);
         scanner.scan_tokens();
     }
 }
-
 
 fn run_prompt() {
     let mut input = String::new();
