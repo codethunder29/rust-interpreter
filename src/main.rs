@@ -2,7 +2,7 @@ use std::env;
 use std::io::{Write, stdin, stdout};
 use std::process;
 
-mod lexer;
+mod scanner;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -12,15 +12,17 @@ fn main() {
         process::exit(1);
     }
     else if args.len() == 1 {
-        prompt();
+        run_prompt();
     }
     else {
-        lexer::scan_file();
+        // interpeter::run_file(&args[1]);
+        let mut scanner = scanner::Scanner::new(&args[1]);
+        scanner.scan_tokens();
     }
 }
 
 
-fn prompt() {
+fn run_prompt() {
     let mut input = String::new();
 
     loop {
