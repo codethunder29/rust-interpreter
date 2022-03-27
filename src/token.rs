@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     // characters tokens
     LeftParen,
@@ -46,24 +46,24 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug)]
-pub enum LiteralValue {
+#[derive(Debug, Clone)]
+pub enum TokenLiteral {
     Int(i64),
     Float(f64),
     Str(String),
     Bool(bool),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub ttype: TokenType, // cant use type because its a keyword (ttype = token_type)
     pub lexeme: String,
-    pub literal: Option<LiteralValue>,
+    pub literal: Option<TokenLiteral>,
     pub line: u32,
 }
 
 impl Token {
-    pub fn new(ttype: TokenType, lexeme: String, literal: Option<LiteralValue>, line: u32) -> Token {
+    pub fn new(ttype: TokenType, lexeme: String, literal: Option<TokenLiteral>, line: u32) -> Token {
         Token {
             ttype,
             lexeme,

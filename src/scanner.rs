@@ -1,7 +1,7 @@
-use self::token::{LiteralValue, Token, TokenType};
+use crate::token::*;
+use crate::error::Error;
 use std::fs;
-
-mod token;
+use std::process::exit;
 
 pub struct Scanner {
     source: Vec<char>,
@@ -20,16 +20,22 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) {
+    pub fn scan_tokens(&mut self) -> Vec<Token> {
         while !self.at_end() {
-            self.scan_token();
+            match self.scan_token() {
+                Ok(()) => {},
+                Err(e) => {
+                    println!("{}", e.message());
+                    exit(1);
+                }
+            }
         }
 
         self.add_token(TokenType::Eof, String::from("eof"), None);
-        println!("{:?}", self.tokens);
+        self.tokens.clone()
     }
 
-    fn scan_token(&mut self) {
+    fn scan_token(&mut self) -> Result<(), Error> {
         let ch = self.source[self.pos as usize];
 
         match ch {
@@ -120,20 +126,28 @@ impl Scanner {
                         self.pos += 1;
                     }
                 } else if self.check_next('*') {
-                    let mut closed = false;
+                    let mut comments = 0;  // number of open comments
 
                     while !self.at_end() {
-                        if self.get(self.pos) == '*' && self.check_next('/') {
-                            closed = true;
+                        if self.get(self.pos) == '/' && self.check_next('*') {
+                            comments += 1;
                             self.pos += 2;
-                            break;
                         }
-
-                        self.pos += 1;
+                        else if self.get(self.pos) == '*' && self.check_next('/') {
+                            comments -= 1;
+                            self.pos += 2;
+                            
+                            if comments == 0 {
+                                break;
+                            }
+                        }
+                        else {
+                            self.pos += 1;
+                        }
                     }
 
-                    if closed == false {
-                        panic!("comment not closed");
+                    if comments > 0 {
+                        panic!("not all comments are closed");
                     }
                 } else {
                     self.add_token(TokenType::Slash, String::from("/"), None);
@@ -166,7 +180,7 @@ impl Scanner {
                     let mut lexeme = String::from('"');
                     lexeme.push_str(&buffer);
                     lexeme.push('"');
-                    self.add_token(TokenType::String, lexeme, Some(LiteralValue::Str(buffer)));
+                    self.add_token(TokenType::String, lexeme, Some(TokenLiteral::Str(buffer)));
                 }
             }
             '\n' => {
@@ -194,12 +208,16 @@ impl Scanner {
                 }
 
                 if buffer.contains('.') {
+                    let num: Result<f64, _> = buffer.parse();
                     // NOTE: need to add error handling for numbers like 455.12321.213
-                    let num: f64 = buffer.parse().unwrap();
-                    self.add_token(TokenType::Number, buffer, Some(LiteralValue::Float(num)))
+                    match num {
+                        Ok(num) => self.add_token(TokenType::Number, buffer, Some(TokenLiteral::Float(num))),
+                        Err(_) => {}
+                    }
+                    
                 } else {
                     let num: i64 = buffer.parse().unwrap();
-                    self.add_token(TokenType::Number, buffer, Some(LiteralValue::Int(num)))
+                    self.add_token(TokenType::Number, buffer, Some(TokenLiteral::Int(num)))
                 }
             }
             _ if ch.is_alphabetic() || ch == '_' => {
@@ -220,11 +238,18 @@ impl Scanner {
                 self.check_keyword(&buffer);
             }
             ' ' | '\r' | '\t' => self.pos += 1,
-            _ => panic!(),
+            _ => {
+                return Err(Error::ScannerError {
+                    line: self.line,
+                    msg: format!("Unexpected character {}", &ch)
+                })
+            },
         }
+
+        Ok(())
     }
 
-    fn add_token(&mut self, token_type: TokenType, lexeme: String, literal: Option<LiteralValue>) {
+    fn add_token(&mut self, token_type: TokenType, lexeme: String, literal: Option<TokenLiteral>) {
         self.tokens.push(Token::new(token_type, lexeme, literal, self.line));
     }
 
@@ -263,12 +288,12 @@ impl Scanner {
             "true" => self.add_token(
                 TokenType::Bool,
                 String::from("true"),
-                Some(LiteralValue::Bool(true)),
+                Some(TokenLiteral::Bool(true)),
             ),
             "false" => self.add_token(
                 TokenType::Bool,
                 String::from("false"),
-                Some(LiteralValue::Bool(false)),
+                Some(TokenLiteral::Bool(false)),
             ),
             _ => self.add_token(TokenType::Identifier, String::from(word), None),
         }
