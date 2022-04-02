@@ -35,6 +35,12 @@ impl Scanner {
         self.tokens.clone()
     }
 
+    fn gen_error(&self, msg: String) -> Error {
+        Error::ScannerError {
+            msg
+        }
+    }
+
     fn scan_token(&mut self) -> Result<(), Error> {
         let ch = self.source[self.pos as usize];
 
@@ -126,28 +132,32 @@ impl Scanner {
                         self.pos += 1;
                     }
                 } else if self.check_next('*') {
-                    let mut comments = 0;  // number of open comments
+                    let mut comments: Vec<u32> = Vec::new();
 
                     while !self.at_end() {
                         if self.get(self.pos) == '/' && self.check_next('*') {
-                            comments += 1;
+                            comments.push(self.line);
                             self.pos += 2;
                         }
                         else if self.get(self.pos) == '*' && self.check_next('/') {
-                            comments -= 1;
+                            comments.pop();
                             self.pos += 2;
                             
-                            if comments == 0 {
+                            if comments.len() == 0 {
                                 break;
                             }
                         }
                         else {
+                            if self.get(self.pos) == '\n' {
+                                self.line += 1;
+                            }
+
                             self.pos += 1;
                         }
                     }
 
-                    if comments > 0 {
-                        panic!("not all comments are closed");
+                    if comments.len() > 0 {
+                        return Err(self.gen_error(format!("Comment in line {} is not closed", comments.pop().unwrap())));
                     }
                 } else {
                     self.add_token(TokenType::Slash, String::from("/"), None);
@@ -155,6 +165,7 @@ impl Scanner {
                 }
             }
             '"' => {
+                let string_start = self.line;
                 let mut buffer = String::new();
                 let mut closed = false;
 
@@ -169,13 +180,16 @@ impl Scanner {
                         self.pos += 1; // doing this to skip over the closing quotation marks
                         break;
                     }
+                    else if ch == '\n' {
+                        self.line += 1;
+                    }
 
                     buffer.push(ch);
                     self.pos += 1;
                 }
 
                 if closed == false {
-                    panic!();
+                    return Err(self.gen_error(format!("String in line {} is not closed", string_start)));
                 } else {
                     let mut lexeme = String::from('"');
                     lexeme.push_str(&buffer);
@@ -197,7 +211,7 @@ impl Scanner {
                     if !(ch.is_ascii_digit() || ch == '.') {
                         // checking for case like 100. or 100.abc
                         if buffer.chars().nth(buffer.len() - 1) == Some('.') {
-                            panic!("Dont allow trailing decimal point")
+                            return Err(self.gen_error(format!("Invalid syntax in line {}", self.line)))
                         }
 
                         break;
@@ -209,10 +223,10 @@ impl Scanner {
 
                 if buffer.contains('.') {
                     let num: Result<f64, _> = buffer.parse();
-                    // NOTE: need to add error handling for numbers like 455.12321.213
+
                     match num {
                         Ok(num) => self.add_token(TokenType::Number, buffer, Some(TokenLiteral::Float(num))),
-                        Err(_) => {}
+                        Err(_) => return Err(self.gen_error(format!("Invalid syntax '{}' in line {}", buffer, self.line)))
                     }
                     
                 } else {
@@ -239,10 +253,7 @@ impl Scanner {
             }
             ' ' | '\r' | '\t' => self.pos += 1,
             _ => {
-                return Err(Error::ScannerError {
-                    line: self.line,
-                    msg: format!("Unexpected character {}", &ch)
-                })
+                return Err(self.gen_error(format!("Unexpected character '{}' in line {}", &ch, self.line)));
             },
         }
 
