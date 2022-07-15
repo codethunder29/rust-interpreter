@@ -39,7 +39,7 @@ pub enum TokenType {
     Return,
     Super,
     This,
-    Var,
+    Let,
     And,
     Or,
 

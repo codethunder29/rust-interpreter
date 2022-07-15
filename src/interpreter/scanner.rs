@@ -301,7 +301,7 @@ impl Scanner {
             "return" => self.add_token(TokenType::Return, String::from("return"), None),
             "super" => self.add_token(TokenType::Super, String::from("super"), None),
             "this" => self.add_token(TokenType::This, String::from("this"), None),
-            "var" => self.add_token(TokenType::Var, String::from("var"), None),
+            "let" => self.add_token(TokenType::Let, String::from("let"), None),
             "and" => self.add_token(TokenType::And, String::from("and"), None),
             "or" => self.add_token(TokenType::Or, String::from("or"), None),
             "true" => self.add_token(
