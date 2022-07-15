@@ -1,7 +1,6 @@
-use crate::token::*;
-use crate::error::Error;
+use super::token::*;
+use super::error::Error;
 use std::fs;
-use std::process::exit;
 
 pub struct Scanner {
     source: Vec<char>,
@@ -20,19 +19,18 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Vec<Token> {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, Error> {
         while !self.at_end() {
             match self.scan_token() {
                 Ok(()) => {},
                 Err(e) => {
-                    println!("{}", e.message());
-                    exit(1);
+                    return Err(e);
                 }
             }
         }
 
         self.add_token(TokenType::Eof, String::from("eof"), None);
-        self.tokens.clone()
+        Ok(self.tokens.clone())
     }
 
     fn gen_error(&self, msg: String) -> Error {
@@ -89,7 +87,8 @@ impl Scanner {
                 if self.check_next('=') {
                     self.add_token(TokenType::BangEqual, String::from("!="), None);
                     self.pos += 2;
-                } else {
+                }
+                else {
                     self.add_token(TokenType::Bang, String::from("!"), None);
                     self.pos += 1;
                 }
@@ -98,7 +97,8 @@ impl Scanner {
                 if self.check_next('=') {
                     self.add_token(TokenType::EqualEqual, String::from("=="), None);
                     self.pos += 2;
-                } else {
+                }
+                else {
                     self.add_token(TokenType::Equal, String::from("="), None);
                     self.pos += 1;
                 }
@@ -107,7 +107,8 @@ impl Scanner {
                 if self.check_next('=') {
                     self.add_token(TokenType::LessEqual, String::from("<="), None);
                     self.pos += 2;
-                } else {
+                }
+                else {
                     self.add_token(TokenType::Less, String::from("<"), None);
                     self.pos += 1;
                 }
@@ -116,12 +117,14 @@ impl Scanner {
                 if self.check_next('=') {
                     self.add_token(TokenType::GreaterEqual, String::from(">="), None);
                     self.pos += 2;
-                } else {
+                }
+                else {
                     self.add_token(TokenType::Greater, String::from(">"), None);
                     self.pos += 1;
                 }
             }
             '/' => {
+                // checking for comment
                 if self.check_next('/') {
                     // looping to skip the rest of the entire line
                     while !self.at_end() {
@@ -131,7 +134,9 @@ impl Scanner {
 
                         self.pos += 1;
                     }
-                } else if self.check_next('*') {
+                }
+                // checking for multi line comment
+                else if self.check_next('*') {
                     let mut comments: Vec<u32> = Vec::new();
 
                     while !self.at_end() {
@@ -159,7 +164,9 @@ impl Scanner {
                     if comments.len() > 0 {
                         return Err(self.gen_error(format!("Comment in line {} is not closed", comments.pop().unwrap())));
                     }
-                } else {
+                }
+                // regular slash
+                else {
                     self.add_token(TokenType::Slash, String::from("/"), None);
                     self.pos += 1;
                 }
@@ -190,7 +197,8 @@ impl Scanner {
 
                 if closed == false {
                     return Err(self.gen_error(format!("String in line {} is not closed", string_start)));
-                } else {
+                }
+                else {
                     let mut lexeme = String::from('"');
                     lexeme.push_str(&buffer);
                     lexeme.push('"');
@@ -227,9 +235,9 @@ impl Scanner {
                     match num {
                         Ok(num) => self.add_token(TokenType::Number, buffer, Some(TokenLiteral::Float(num))),
                         Err(_) => return Err(self.gen_error(format!("Invalid syntax '{}' in line {}", buffer, self.line)))
-                    }
-                    
-                } else {
+                    }  
+                }
+                else {
                     let num: i64 = buffer.parse().unwrap();
                     self.add_token(TokenType::Number, buffer, Some(TokenLiteral::Int(num)))
                 }

@@ -1,5 +1,6 @@
-use crate::token::Token;
+use super::Token;
 
+#[derive(Debug)]
 pub enum Error {
     ScannerError {msg: String},
     ParserError {msg: String}

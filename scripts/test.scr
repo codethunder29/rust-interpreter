@@ -1,18 +1,22 @@
+var a = 100;
+var s = "hello world";
+
+print(s);
+
+if a > 10.0 {
+    print("{a} is bigger than 10");
+}
+
+// i'm a comment
+
+/* i'm also a comment */
+
+/*
+    i'm multi line comment
+
+
 /*
     /*
-    var a = 10;
-
+        i'm nested comment
+    */
 */
-
-"
-//var a = 343244324.234324233324432.234423
-"
-//`
-
-) = 68678
-
-var b = 3;
-
-if a == 1000 {
-    
-}

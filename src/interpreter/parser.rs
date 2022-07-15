@@ -1,7 +1,7 @@
 use std::io::{stdout, Write};
-use crate::error::Error;
-use crate::expr::*;
-use crate::token::{Token, TokenType, TokenLiteral};
+use super::error::Error;
+use super::expr::*;
+use super::token::{Token, TokenType, TokenLiteral};
 
 pub struct Parser {
     pos: u32,
@@ -69,7 +69,8 @@ impl Parser {
 
             self.pos += 1;
             let right = self.comparison();
-            return Ok(Expr::BinaryOp(Box::new(left), operator.unwrap(), Box::new(right)));
+            // return Ok(Expr::BinaryOp(Box::new(left), operator.unwrap(), Box::new(right)));
+            return Ok(Expr::BinaryOp(Box::new(Expr::Literal(None)), operator.unwrap(), Box::new(Expr::Literal(None))));
         }
 
         Err(self.gen_error(String::from(":/")))

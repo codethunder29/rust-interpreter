@@ -1,36 +1,30 @@
 use std::env;
 use std::io::{stdin, stdout, Write};
 use std::process;
-use scanner::Scanner;
-use parser::{Parser, print_tree};
-use expr::*;
+use interpreter::Scanner;
+use interpreter::Parser;
 
-mod scanner;
-mod parser;
-mod token;
-mod expr;
-mod error;
-
+mod interpreter;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let tree = Expr::BinaryOp(
-        Box::new(Expr::Gropuing(
-            Box::new(Expr::BinaryOp(
-                Box::new(Expr::Literal(Some(ExprLiteral::Int(10)))),
-                BinaryOp::Plus,
-                Box::new( Expr::Literal(Some(ExprLiteral::Float(18.1)))),
-            ))
-        )),
-        BinaryOp::Star,
-        Box::new(Expr::Unary(
-            UnaryOp::Minus,
-            Box::new(Expr::Literal(Some(ExprLiteral::Int(200))))
-        ))
-    );
+    // let tree = Expr::BinaryOp(
+    //     Box::new(Expr::Gropuing(
+    //         Box::new(Expr::BinaryOp(
+    //             Box::new(Expr::Literal(Some(ExprLiteral::Int(10)))),
+    //             BinaryOp::Plus,
+    //             Box::new( Expr::Literal(Some(ExprLiteral::Float(18.1)))),
+    //         ))
+    //     )),
+    //     BinaryOp::Star,
+    //     Box::new(Expr::Unary(
+    //         UnaryOp::Minus,
+    //         Box::new(Expr::Literal(Some(ExprLiteral::Int(200))))
+    //     ))
+    // );
 
     // let tree = Node::new(Expr::Literal(None));
-    print_tree(tree);
+    // print_tree(tree);
     println!("");
 
     if args.len() > 2 {
@@ -42,7 +36,8 @@ fn main() {
         let mut scanner = Scanner::new(&args[1]);
         let mut parser = Parser::new();
 
-        parser.parse(scanner.scan_tokens());
+        println!("{:?}", scanner.scan_tokens());
+        // parser.parse(scanner.scan_tokens());
     }
 }
 
