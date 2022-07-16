@@ -1,0 +1,35 @@
+let integer = 100;
+let floating_point = 5.2;
+let string = "Hello World";
+let boolean = true;
+let null_value = null;
+
+// comment
+
+/* also comment */
+
+/*
+    multi line comment
+    /*
+        nested comment
+    */
+*/
+
+print(integer, floating_point, string);  // "100 5.2 Hello World"
+
+string.upper();  // "HELLO WORLD"
+string.lower();  // "hello world"
+
+integer.to_string();  // "100"
+
+floating_point.to_string();  // "5.2"
+
+if integer > 100 {
+    print("{integer} is indeed bigger than 100");
+}
+
+if floating_point < 6 or string == "Hello World" {}
+
+if null_value == null and boolean {
+    print("null is null and boolean is true");
+}

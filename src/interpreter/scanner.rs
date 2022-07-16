@@ -9,6 +9,7 @@ pub struct Scanner {
     tokens: Vec<Token>,
 }
 
+// main logic functions
 impl Scanner {
     pub fn new(source_path: &String) -> Scanner {
         Scanner {
@@ -16,6 +17,15 @@ impl Scanner {
             pos: 0,
             line: 1,
             tokens: Vec::new(),
+        }
+    }
+
+    pub fn from_str(source: String) -> Scanner {
+        Scanner {
+            source: source.chars().collect(),
+            pos: 0,
+            line: 1,
+            tokens: Vec::new()
         }
     }
 
@@ -31,12 +41,6 @@ impl Scanner {
 
         self.add_token(TokenType::Eof, String::from("eof"), None);
         Ok(self.tokens.clone())
-    }
-
-    fn gen_error(&self, msg: String) -> Error {
-        Error::ScannerError {
-            msg
-        }
     }
 
     fn scan_token(&mut self) -> Result<(), Error> {
@@ -268,26 +272,6 @@ impl Scanner {
         Ok(())
     }
 
-    fn add_token(&mut self, token_type: TokenType, lexeme: String, literal: Option<TokenLiteral>) {
-        self.tokens.push(Token::new(token_type, lexeme, literal, self.line));
-    }
-
-    fn check_next(&self, ch: char) -> bool {
-        if ((self.pos + 1) as usize) < self.source.len() {
-            return self.get(self.pos + 1) == ch;
-        }
-
-        false
-    }
-
-    fn get(&self, idx: u32) -> char {
-        self.source[idx as usize]
-    }
-
-    fn at_end(&self) -> bool {
-        self.pos as usize >= self.source.len()
-    }
-
     fn check_keyword(&mut self, word: &str) {
         match word {
             "if" => self.add_token(TokenType::If, String::from("if"), None),
@@ -315,6 +299,35 @@ impl Scanner {
                 Some(TokenLiteral::Bool(false)),
             ),
             _ => self.add_token(TokenType::Identifier, String::from(word), None),
+        }
+    }
+}
+
+// helper functions
+impl Scanner {
+    fn add_token(&mut self, token_type: TokenType, lexeme: String, literal: Option<TokenLiteral>) {
+        self.tokens.push(Token::new(token_type, lexeme, literal, self.line));
+    }
+
+    fn check_next(&self, ch: char) -> bool {
+        if ((self.pos + 1) as usize) < self.source.len() {
+            return self.get(self.pos + 1) == ch;
+        }
+
+        false
+    }
+
+    fn get(&self, idx: u32) -> char {
+        self.source[idx as usize]
+    }
+
+    fn at_end(&self) -> bool {
+        self.pos as usize >= self.source.len()
+    }
+
+    fn gen_error(&self, msg: String) -> Error {
+        Error::ScannerError {
+            msg
         }
     }
 }

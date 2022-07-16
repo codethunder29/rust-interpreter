@@ -1,3 +1,4 @@
+use std::fmt::Binary;
 use std::io::{stdout, Write};
 use super::error::Error;
 use super::expr::*;
@@ -20,13 +21,17 @@ impl Parser {
         // let mut statments = Vec::new();
         self.tokens = tokens;
         
-
-        while !self.at_end() {
-
+        match self.expression() {
+            Ok(val) => {},
+            Err(e) => println!("{:?}", e),
         }
+        // self.expression().unwrap();
+        // while !self.at_end() {
+
+        // }
     }
 
-    // primary defines the start of the expression, for example this expr is valid "var a = 1000", this is not ") a = 1000"
+    // primary defines the start of the expression, for example this expr is valid "let a = 1000", this is not ") a = 1000"
     fn primary(&mut self) -> Result<Expr, Error> {
         match self.peek().ttype {
             TokenType::Number | TokenType::String | TokenType::Bool => {
@@ -41,7 +46,13 @@ impl Parser {
             },
             TokenType::Null => return Ok(Expr::Literal(None)),
             TokenType::LeftParen => {
+                println!("{}", self.pos);
+                let expr = self.expression();
 
+                match self.consume(TokenType::RightParen, "Expected ')' after experssion".to_string()) {
+                    Ok(_) => return Ok(Expr::Gropuing(Box::new(expr.unwrap()))),
+                    Err(e) => return Err(e)
+                }
             },
             _ => {}
         }
@@ -49,51 +60,104 @@ impl Parser {
         Err(self.gen_error(String::from("Error")))
     }
 
-    fn unary(&mut self) {
+    fn unary(&mut self) -> Result<Expr, Error> {
+        if self.match_token(vec![TokenType::Bang, TokenType::Minus]) {
+            let operator = match self.previous().ttype {
+                TokenType::Bang => Some(UnaryOp::Bang),
+                TokenType::Minus => Some(UnaryOp::Minus),
+                _ => None
+            };
 
+            let right = self.unary().unwrap();
+            return Ok(Expr::Unary(operator.unwrap(), Box::new(right)));
+        }
+
+        Ok(self.primary().unwrap())
     }
 
-    fn comparison(&mut self) {
+    // multiplaction and division
+    fn factor(&mut self) -> Result<Expr, Error> {
+        let expr = self.unary().unwrap();
 
+        while self.match_token(vec![TokenType::Star, TokenType::Slash]) {
+            let operator = match self.previous().ttype {
+                TokenType::Star => Some(BinaryOp::Star),
+                TokenType::Slash => Some(BinaryOp::Slash),
+                _ => None
+            };
+
+            let right = self.unary().unwrap();
+            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
+        }
+        Ok(expr)
+    }
+
+    // Addition and subtraction
+    fn term(&mut self) -> Result<Expr, Error> {
+        let expr = self.factor().unwrap();
+
+        while self.match_token(vec![TokenType::Minus, TokenType::Plus]) {
+            let operator = match self.previous().ttype {
+                TokenType::Minus => Some(BinaryOp::Minus),
+                TokenType::Plus => Some(BinaryOp::Plus),
+                _ => None
+            };
+
+            let right = self.factor().unwrap();
+            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
+        }
+
+        Ok(expr)
+    }
+
+    fn comparison(&mut self) -> Result<Expr, Error> {
+        let expr = self.term().unwrap();
+
+        while self.match_token(vec![TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
+            let operator = match self.previous().ttype {
+                TokenType::Greater => Some(BinaryOp::Greater),
+                TokenType::GreaterEqual => Some(BinaryOp::GreaterEqual),
+                TokenType::Less => Some(BinaryOp::Less),
+                TokenType::LessEqual => Some(BinaryOp::LessEqual),
+                _ => None
+            };
+
+            let right = self.term().unwrap();
+            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr, Error> {
-        let left = self.comparison();
+        let expr = self.comparison().unwrap();
 
+        // if the next token after epxr is == or != it means that expr is part of an equality else its another expr
         while self.match_token(vec![TokenType::EqualEqual, TokenType::BangEqual]) {
-            let operator = match self.peek().ttype {
+            let operator = match self.previous().ttype {
                 TokenType::EqualEqual => Some(BinaryOp::EqualEqual),
                 TokenType::BangEqual => Some(BinaryOp::BangEqual),
                 _ => None
             };
 
-            self.pos += 1;
-            let right = self.comparison();
-            // return Ok(Expr::BinaryOp(Box::new(left), operator.unwrap(), Box::new(right)));
-            return Ok(Expr::BinaryOp(Box::new(Expr::Literal(None)), operator.unwrap(), Box::new(Expr::Literal(None))));
+            let right = self.comparison().unwrap();
+            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
 
-        Err(self.gen_error(String::from(":/")))
+        Ok(expr)
     }
 
     fn expression(&mut self) -> Result<Expr, Error> {
         self.equality()
     }
+}
 
+// helper functions
+impl Parser {
     fn gen_error(&self, msg: String) -> Error {
         Error::ParserError {
             msg
         }
-    }
-
-    fn match_token(&self, types: Vec<TokenType>) -> bool {
-        for ttype in types {
-            if self.peek().ttype == ttype {
-                return true;
-            }
-        }
-
-        false
     }
 
     fn peek(&self) -> &Token {
@@ -111,9 +175,34 @@ impl Parser {
     fn at_end(&self) -> bool {
         self.pos as usize >= self.tokens.len()
     }
+
+    // runs until it finds token and return ok or it came to EOF and returns parser error with err_msg
+    fn consume(&mut self, token: TokenType, err_msg: String) -> Result<(), Error> {
+        while self.peek().ttype != token && !self.at_end() {
+            self.pos += 1;
+        }
+
+        if self.at_end() {
+            Ok(())
+        }
+        else {
+            Err(self.gen_error(err_msg))
+        }
+    }
+
+    fn match_token(&mut self, types: Vec<TokenType>) -> bool {
+        for ttype in types {
+            if self.peek().ttype == ttype {
+                self.pos += 1;
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
-pub fn print_tree(expr: Expr) {
+pub fn print_tree_pretty(expr: Expr) {
     match expr {
         Expr::Literal(val) => {
             if val.is_some() {
@@ -123,7 +212,7 @@ pub fn print_tree(expr: Expr) {
         },
         Expr::Gropuing(val) => {
             print!("( ");
-            print_tree(*val);
+            print_tree_pretty(*val);
             print!(" )");
             stdout().flush().unwrap();
         },
@@ -133,10 +222,10 @@ pub fn print_tree(expr: Expr) {
                 UnaryOp::Bang => print!("!")
             }
 
-            print_tree(*val);
+            print_tree_pretty(*val);
         },
         Expr::BinaryOp(val1, op, val2) => {
-            print_tree(*val1);
+            print_tree_pretty(*val1);
 
             match op {
                 BinaryOp::EqualEqual => print!(" == "),
@@ -151,7 +240,49 @@ pub fn print_tree(expr: Expr) {
                 BinaryOp::Slash => print!(" / ")
             }
 
+            print_tree_pretty(*val2);
+        }
+    }
+}
+
+pub fn print_tree(expr: Expr) {
+    match expr {
+        Expr::Literal(val) => {
+            print!("{:?}", val.unwrap());
+            stdout().flush().unwrap();
+        },
+        Expr::Gropuing(val) => {
+            print!("( ");
+            print_tree(*val);
+            print!(" )");
+        },
+        Expr::Unary(op,val) => {
+            match op {
+                UnaryOp::Minus => print!("-"),
+                UnaryOp::Bang => print!("!")
+            }
+
+            print_tree(*val);
+        },
+        Expr::BinaryOp(val1, op, val2) => {
+            match op {
+                BinaryOp::EqualEqual => print!("== "),
+                BinaryOp::BangEqual => print!("!= "),
+                BinaryOp::Less => print!("< "),
+                BinaryOp::LessEqual => print!("<= "),
+                BinaryOp::Greater => print!("> "),
+                BinaryOp::GreaterEqual => print!(">= "),
+                BinaryOp::Plus => print!("+ "),
+                BinaryOp::Minus => print!("- "),
+                BinaryOp::Star => print!("* "),
+                BinaryOp::Slash => print!("/ ")
+            }
+
+            print!("(");
+            print_tree(*val1);
+            print!(" ");
             print_tree(*val2);
+            print!(")");
         }
     }
 }

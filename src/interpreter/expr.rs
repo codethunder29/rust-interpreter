@@ -1,4 +1,4 @@
-
+#[derive(Clone)]
 pub enum Expr {
     Literal(Option<ExprLiteral>),
     Gropuing(Box<Expr>),
@@ -6,7 +6,7 @@ pub enum Expr {
     BinaryOp(Box<Expr>, BinaryOp, Box<Expr>)
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ExprLiteral {
     Int(i64),
     Float(f64),
@@ -14,13 +14,13 @@ pub enum ExprLiteral {
     Bool(bool)
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum UnaryOp {
     Minus,
     Bang
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum BinaryOp {
     EqualEqual,
     BangEqual,
