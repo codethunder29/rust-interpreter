@@ -1,5 +1,5 @@
-use std::env;
-use std::io::{stdin, stdout, Write};
+use std::{env, fs};
+use std::io::{stdin, stdout, Write, BufRead};
 use std::process;
 use interpreter::Scanner;
 use interpreter::Parser;
@@ -31,6 +31,7 @@ fn main() {
     print_tree(tree.clone());
     println!("");
     print_tree_pretty(tree);
+    println!("");
 
     if args.len() > 2 {
         println!("Usage:\ninterpeter <script_path>");
@@ -43,8 +44,29 @@ fn main() {
         let mut scanner = Scanner::new(&args[1]);
         let mut parser = Parser::new();
 
+        match scanner.scan_tokens() {
+            Ok(val) => {},
+            Err(e) => {
+                let src = fs::read_to_string(&args[1]).unwrap();
+                let src: Vec<&str> = src.as_str().split("\n").collect();
+                
+                match e {
+                    interpreter::Error::ScannerError { msg, line, pos } => {
+                        println!("{}", msg);
+                        println!("'{}'", src[line as usize - 1]);
+
+                        for _ in 0..(pos + 1) {
+                            print!(" ");
+                        }
+                        println!("^");
+                    },
+                    _ => {}
+                }
+            }
+        }
+
         // println!("{:?}", scanner.scan_tokens());
-        parser.parse(scanner.scan_tokens().unwrap());
+        // parser.parse(scanner.scan_tokens().unwrap());
     }
 }
 

@@ -1,22 +1,2 @@
-let a = 100;
+let a = 100.aa ;
 let s = "hello world";
-
-print(s);
-
-if a > 10.0 {
-    print("{a} is bigger than 10");
-}
-
-// i'm a comment
-
-/* i'm also a comment */
-
-/*
-    i'm multi line comment
-*/
-
-/*
-    /*
-        i'm nested comment
-    */
-*/

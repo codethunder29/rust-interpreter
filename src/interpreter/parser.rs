@@ -33,31 +33,31 @@ impl Parser {
 
     // primary defines the start of the expression, for example this expr is valid "let a = 1000", this is not ") a = 1000"
     fn primary(&mut self) -> Result<Expr, Error> {
-        match self.peek().ttype {
-            TokenType::Number | TokenType::String | TokenType::Bool => {
-                // number can be integer or float
-                match self.peek().literal.as_ref().unwrap() {
-                    TokenLiteral::Int(val) => return Ok(Expr::Literal(Some(ExprLiteral::Int(*val)))),
-                    TokenLiteral::Float(val) => return Ok(Expr::Literal(Some(ExprLiteral::Float(*val)))),
-                    TokenLiteral::Str(val) => return Ok(Expr::Literal(Some(ExprLiteral::Str((*val).clone())))),
-                    TokenLiteral::Bool(val) => return Ok(Expr::Literal(Some(ExprLiteral::Bool(*val)))),
-                    _ => {}
-                }
-            },
-            TokenType::Null => return Ok(Expr::Literal(None)),
-            TokenType::LeftParen => {
-                println!("{}", self.pos);
-                let expr = self.expression();
-
-                match self.consume(TokenType::RightParen, "Expected ')' after experssion".to_string()) {
-                    Ok(_) => return Ok(Expr::Gropuing(Box::new(expr.unwrap()))),
-                    Err(e) => return Err(e)
-                }
-            },
-            _ => {}
+        if self.match_token(vec![TokenType::Number, TokenType::String, TokenType::Bool]) {
+            match self.previous().literal.as_ref().unwrap() {
+                TokenLiteral::Int(val) => return Ok(Expr::Literal(Some(ExprLiteral::Int(*val)))),
+                TokenLiteral::Float(val) => return Ok(Expr::Literal(Some(ExprLiteral::Float(*val)))),
+                TokenLiteral::Str(val) => return Ok(Expr::Literal(Some(ExprLiteral::Str((*val).clone())))),
+                TokenLiteral::Bool(val) => return Ok(Expr::Literal(Some(ExprLiteral::Bool(*val)))),
+            }
         }
 
-        Err(self.gen_error(String::from("Error")))
+        if self.match_token(vec![TokenType::Null]) {
+            return Ok(Expr::Literal(None))
+        }
+
+        if self.match_token(vec![TokenType::LeftParen]) {
+            let expr = self.expression();
+
+            match self.consume(TokenType::RightParen, "Expected ')' after experssion".to_string()) {
+                Ok(_) => return Ok(Expr::Gropuing(Box::new(expr.unwrap()))),
+                Err(e) => return Err(e)
+            }
+        }
+
+        let token = self.peek();
+
+        Err(self.gen_error(format!("Invalid syntax '{}' in line {}", token.lexeme, token.line)))
     }
 
     fn unary(&mut self) -> Result<Expr, Error> {
@@ -68,16 +68,16 @@ impl Parser {
                 _ => None
             };
 
-            let right = self.unary().unwrap();
+            let right = self.unary()?;
             return Ok(Expr::Unary(operator.unwrap(), Box::new(right)));
         }
 
-        Ok(self.primary().unwrap())
+        Ok(self.primary()?)
     }
 
     // multiplaction and division
     fn factor(&mut self) -> Result<Expr, Error> {
-        let expr = self.unary().unwrap();
+        let expr = self.unary()?;
 
         while self.match_token(vec![TokenType::Star, TokenType::Slash]) {
             let operator = match self.previous().ttype {
@@ -86,7 +86,7 @@ impl Parser {
                 _ => None
             };
 
-            let right = self.unary().unwrap();
+            let right = self.unary()?;
             return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
         Ok(expr)
@@ -94,7 +94,7 @@ impl Parser {
 
     // Addition and subtraction
     fn term(&mut self) -> Result<Expr, Error> {
-        let expr = self.factor().unwrap();
+        let expr = self.factor()?;
 
         while self.match_token(vec![TokenType::Minus, TokenType::Plus]) {
             let operator = match self.previous().ttype {
@@ -103,7 +103,7 @@ impl Parser {
                 _ => None
             };
 
-            let right = self.factor().unwrap();
+            let right = self.factor()?;
             return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
 
@@ -111,7 +111,7 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Result<Expr, Error> {
-        let expr = self.term().unwrap();
+        let expr = self.term()?;
 
         while self.match_token(vec![TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
             let operator = match self.previous().ttype {
@@ -122,7 +122,7 @@ impl Parser {
                 _ => None
             };
 
-            let right = self.term().unwrap();
+            let right = self.term()?;
             return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
 
@@ -130,7 +130,7 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Result<Expr, Error> {
-        let expr = self.comparison().unwrap();
+        let expr = self.comparison()?;
 
         // if the next token after epxr is == or != it means that expr is part of an equality else its another expr
         while self.match_token(vec![TokenType::EqualEqual, TokenType::BangEqual]) {
@@ -140,7 +140,7 @@ impl Parser {
                 _ => None
             };
 
-            let right = self.comparison().unwrap();
+            let right = self.comparison()?;
             return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
 
@@ -178,22 +178,24 @@ impl Parser {
 
     // runs until it finds token and return ok or it came to EOF and returns parser error with err_msg
     fn consume(&mut self, token: TokenType, err_msg: String) -> Result<(), Error> {
-        while self.peek().ttype != token && !self.at_end() {
+        while  !self.at_end() && self.peek().ttype != token {
             self.pos += 1;
         }
 
         if self.at_end() {
-            Ok(())
-        }
-        else {
             Err(self.gen_error(err_msg))
+        }
+        else { 
+            Ok(())
         }
     }
 
     fn match_token(&mut self, types: Vec<TokenType>) -> bool {
         for ttype in types {
             if self.peek().ttype == ttype {
-                self.pos += 1;
+                if !self.at_end() {
+                    self.pos += 1;
+                }
                 return true;
             }
         }

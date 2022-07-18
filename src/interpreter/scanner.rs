@@ -6,6 +6,7 @@ pub struct Scanner {
     source: Vec<char>,
     pos: u32,
     line: u32,
+    line_pos: u32,
     tokens: Vec<Token>,
 }
 
@@ -16,6 +17,7 @@ impl Scanner {
             source: fs::read_to_string(source_path).unwrap().chars().collect(),
             pos: 0,
             line: 1,
+            line_pos: 0,
             tokens: Vec::new(),
         }
     }
@@ -25,6 +27,7 @@ impl Scanner {
             source: source.chars().collect(),
             pos: 0,
             line: 1,
+            line_pos: 0,
             tokens: Vec::new()
         }
     }
@@ -45,86 +48,106 @@ impl Scanner {
 
     fn scan_token(&mut self) -> Result<(), Error> {
         let ch = self.source[self.pos as usize];
+        let tmp_pos = 0;
+        self.line_pos = self.pos;
 
         match ch {
             '(' => {
                 self.add_token(TokenType::LeftParen, String::from("("), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             ')' => {
                 self.add_token(TokenType::RightParen, String::from(")"), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             '{' => {
                 self.add_token(TokenType::LeftBrace, String::from("{"), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             '}' => {
                 self.add_token(TokenType::RightBrace, String::from("}"), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             ',' => {
                 self.add_token(TokenType::Comma, String::from(","), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             '.' => {
                 self.add_token(TokenType::Dot, String::from("."), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             '-' => {
                 self.add_token(TokenType::Minus, String::from("-"), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             '+' => {
                 self.add_token(TokenType::Plus, String::from("+"), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             ';' => {
                 self.add_token(TokenType::Semicolon, String::from(";"), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             '*' => {
                 self.add_token(TokenType::Star, String::from("*"), None);
                 self.pos += 1;
+                self.line_pos += 1;
             }
             '!' => {
                 if self.check_next('=') {
                     self.add_token(TokenType::BangEqual, String::from("!="), None);
                     self.pos += 2;
+                    self.line_pos += 2;
                 }
                 else {
                     self.add_token(TokenType::Bang, String::from("!"), None);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
             }
             '=' => {
                 if self.check_next('=') {
                     self.add_token(TokenType::EqualEqual, String::from("=="), None);
                     self.pos += 2;
+                    self.line_pos += 2;
                 }
                 else {
                     self.add_token(TokenType::Equal, String::from("="), None);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
             }
             '<' => {
                 if self.check_next('=') {
                     self.add_token(TokenType::LessEqual, String::from("<="), None);
                     self.pos += 2;
+                    self.line_pos += 2;
                 }
                 else {
                     self.add_token(TokenType::Less, String::from("<"), None);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
             }
             '>' => {
                 if self.check_next('=') {
                     self.add_token(TokenType::GreaterEqual, String::from(">="), None);
                     self.pos += 2;
+                    self.line_pos += 2;
                 }
                 else {
                     self.add_token(TokenType::Greater, String::from(">"), None);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
             }
             '/' => {
@@ -137,6 +160,7 @@ impl Scanner {
                         }
 
                         self.pos += 1;
+                        self.line_pos += 1;
                     }
                 }
                 // checking for multi line comment
@@ -147,10 +171,12 @@ impl Scanner {
                         if self.get(self.pos) == '/' && self.check_next('*') {
                             comments.push(self.line);
                             self.pos += 2;
+                            self.line_pos += 2;
                         }
                         else if self.get(self.pos) == '*' && self.check_next('/') {
                             comments.pop();
                             self.pos += 2;
+                            self.line_pos += 2;
                             
                             if comments.len() == 0 {
                                 break;
@@ -159,9 +185,11 @@ impl Scanner {
                         else {
                             if self.get(self.pos) == '\n' {
                                 self.line += 1;
+                                self.line_pos += 1;
                             }
 
                             self.pos += 1;
+                            self.line_pos += 1;
                         }
                     }
 
@@ -173,6 +201,7 @@ impl Scanner {
                 else {
                     self.add_token(TokenType::Slash, String::from("/"), None);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
             }
             '"' => {
@@ -182,6 +211,7 @@ impl Scanner {
 
                 // will break on loop without goind forward
                 self.pos += 1;
+                self.line_pos += 1;
 
                 while !self.at_end() {
                     let ch = self.get(self.pos);
@@ -189,14 +219,17 @@ impl Scanner {
                     if ch == '"' {
                         closed = true;
                         self.pos += 1; // doing this to skip over the closing quotation marks
+                        self.line_pos += 1;
                         break;
                     }
                     else if ch == '\n' {
                         self.line += 1;
+                        self.line_pos = 1;
                     }
 
                     buffer.push(ch);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
 
                 if closed == false {
@@ -210,8 +243,9 @@ impl Scanner {
                 }
             }
             '\n' => {
-                self.line += 1;
                 self.pos += 1;
+                self.line += 1;
+                self.line_pos = 1;
             }
             '0'..='9' => {
                 let mut buffer = String::new();
@@ -231,6 +265,7 @@ impl Scanner {
 
                     buffer.push(ch);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
 
                 if buffer.contains('.') {
@@ -259,11 +294,15 @@ impl Scanner {
 
                     buffer.push(ch);
                     self.pos += 1;
+                    self.line_pos += 1;
                 }
 
                 self.check_keyword(&buffer);
             }
-            ' ' | '\r' | '\t' => self.pos += 1,
+            ' ' | '\r' | '\t' => {
+                self.pos += 1;
+                self.line_pos += 1;
+            },
             _ => {
                 return Err(self.gen_error(format!("Unexpected character '{}' in line {}", &ch, self.line)));
             },
@@ -300,13 +339,18 @@ impl Scanner {
             ),
             _ => self.add_token(TokenType::Identifier, String::from(word), None),
         }
+        
+        // pos value of keyword token would be the end of the token instead of the start
+        // because of that it needs to subtract the length of the token 
+        let last_index = self.tokens.len() - 1;
+        self.tokens[last_index].pos -= self.tokens[last_index].lexeme.len() as u32;
     }
 }
 
 // helper functions
 impl Scanner {
     fn add_token(&mut self, token_type: TokenType, lexeme: String, literal: Option<TokenLiteral>) {
-        self.tokens.push(Token::new(token_type, lexeme, literal, self.line));
+        self.tokens.push(Token::new(token_type, lexeme, literal, self.line, self.line_pos));
     }
 
     fn check_next(&self, ch: char) -> bool {
@@ -327,7 +371,9 @@ impl Scanner {
 
     fn gen_error(&self, msg: String) -> Error {
         Error::ScannerError {
-            msg
+            msg,
+            line: self.line,
+            pos: self.line_pos
         }
     }
 }

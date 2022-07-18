@@ -60,15 +60,17 @@ pub struct Token {
     pub lexeme: String,
     pub literal: Option<TokenLiteral>,
     pub line: u32,
+    pub pos: u32
 }
 
 impl Token {
-    pub fn new(ttype: TokenType, lexeme: String, literal: Option<TokenLiteral>, line: u32) -> Token {
+    pub fn new(ttype: TokenType, lexeme: String, literal: Option<TokenLiteral>, line: u32, pos: u32) -> Token {
         Token {
             ttype,
             lexeme,
             literal,
-            line
+            line,
+            pos
         }
     }
 }
