@@ -45,13 +45,15 @@ fn main() {
         let mut parser = Parser::new();
 
         match scanner.scan_tokens() {
-            Ok(val) => {},
+            Ok(val) => {
+                let ast = parser.parse(val);
+            },
             Err(e) => {
                 let src = fs::read_to_string(&args[1]).unwrap();
                 let src: Vec<&str> = src.as_str().split("\n").collect();
                 
                 match e {
-                    interpreter::Error::ScannerError { msg, line, pos } => {
+                    interpreter::Error::ScannerError { msg, line, pos} => {
                         println!("{}", msg);
                         println!("'{}'", src[line as usize - 1]);
 
@@ -86,7 +88,21 @@ fn run_prompt() {
         let tokens = scanner.scan_tokens();
 
         match tokens {
-            Ok(val) => parser.parse(val),
+            Ok(val) => {
+                let ast = parser.parse(val);
+
+                match ast {
+                    Ok(val) => {
+                        println!("{:?}", val.clone());
+                        print_tree(val.clone());
+                        println!();
+                        print_tree_pretty(val);
+                        println!();
+
+                    },
+                    Err(e) => println!("{}", e.message()),
+                }
+            },
             Err(e) => println!("{:?}", e)
         }
         // parser.parse(scanner.scan_tokens());

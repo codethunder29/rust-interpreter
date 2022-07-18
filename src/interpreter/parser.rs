@@ -17,18 +17,10 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, tokens: Vec<Token>) {
-        // let mut statments = Vec::new();
+    pub fn parse(&mut self, tokens: Vec<Token>) -> Result<Expr, Error> {
         self.tokens = tokens;
         
-        match self.expression() {
-            Ok(val) => {},
-            Err(e) => println!("{:?}", e),
-        }
-        // self.expression().unwrap();
-        // while !self.at_end() {
-
-        // }
+        self.expression()
     }
 
     // primary defines the start of the expression, for example this expr is valid "let a = 1000", this is not ") a = 1000"
@@ -50,14 +42,14 @@ impl Parser {
             let expr = self.expression();
 
             match self.consume(TokenType::RightParen, "Expected ')' after experssion".to_string()) {
-                Ok(_) => return Ok(Expr::Gropuing(Box::new(expr.unwrap()))),
+                Ok(_) => return Ok(Expr::Gropuing(Box::new(expr?))),
                 Err(e) => return Err(e)
             }
         }
 
         let token = self.peek();
 
-        Err(self.gen_error(format!("Invalid syntax '{}' in line {}", token.lexeme, token.line)))
+        Err(self.gen_error(format!("Invalid syntax '{}' in line {}", token.lexeme, token.line), token.clone()))
     }
 
     fn unary(&mut self) -> Result<Expr, Error> {
@@ -154,9 +146,10 @@ impl Parser {
 
 // helper functions
 impl Parser {
-    fn gen_error(&self, msg: String) -> Error {
+    fn gen_error(&self, msg: String, token: Token) -> Error {
         Error::ParserError {
-            msg
+            msg,
+            token
         }
     }
 
@@ -176,14 +169,40 @@ impl Parser {
         self.pos as usize >= self.tokens.len()
     }
 
+    fn synchronize(&mut self) {
+        if !self.at_end() {
+            self.pos += 1;
+        }
+
+        while !self.at_end() {
+            if self.previous().ttype == TokenType::Semicolon {
+                return;
+            }
+
+            match self.peek().ttype {
+                TokenType::Class => return,
+                TokenType::Fn => return,
+                TokenType::Let => return,
+                TokenType::For => return,
+                TokenType::If => return,
+                TokenType::While => return,
+                TokenType::Print => return,
+                TokenType::Return => return,
+                _ => {}
+            }
+
+            self.pos += 1;
+        }
+    }
+
     // runs until it finds token and return ok or it came to EOF and returns parser error with err_msg
-    fn consume(&mut self, token: TokenType, err_msg: String) -> Result<(), Error> {
-        while  !self.at_end() && self.peek().ttype != token {
+    fn consume(&mut self, ttype: TokenType, err_msg: String) -> Result<(), Error> {
+        while !self.at_end() && self.peek().ttype != ttype {
             self.pos += 1;
         }
 
         if self.at_end() {
-            Err(self.gen_error(err_msg))
+            Err(self.gen_error(err_msg, self.peek().clone()))
         }
         else { 
             Ok(())
