@@ -1,30 +1,72 @@
-use std::fmt::Binary;
 use std::io::{stdout, Write};
-use super::error::Error;
+use super::ParserError;
 use super::expr::*;
-use super::token::{Token, TokenType, TokenLiteral};
+use super::stmt::*;
+use crate::scanner::token::*;
 
 pub struct Parser {
     pos: u32,
-    tokens: Vec<Token>
+    tokens: Vec<Token>,
+    statements: Vec<Stmt>
 }
 
 impl Parser {
     pub fn new() -> Self {
         Parser {
             pos: 0,
-            tokens: Vec::new()
+            tokens: Vec::new(),
+            statements: Vec::new()
         }
     }
 
-    pub fn parse(&mut self, tokens: Vec<Token>) -> Result<Expr, Error> {
+    pub fn parse(&mut self, tokens: Vec<Token>) -> Result<Vec<Stmt>, ParserError> {
         self.tokens = tokens;
-        
-        self.expression()
+
+        while !self.at_end() {
+            let stmt = self.statement()?;
+            self.statements.push(stmt);
+        }
+
+        Ok(self.statements.clone())
+    }
+
+    pub fn reset(&mut self) {
+        self.pos = 0;
+    }
+
+    // fn program(&mut self) -> Result<(), ParserError> {
+    //     if self.match_token(vec![TokenType::Eof]) {
+    //         return Ok(());
+    //     }
+
+    //     self.statement()
+    // }
+
+    fn statement(&mut self) -> Result<Stmt, ParserError> {
+        if self.match_token(vec![TokenType::Print]) {
+            return self.print_statement();
+        }
+
+        self.expr_statement()
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, ParserError> {
+        let expr = self.expression()?;
+
+        self.consume(TokenType::Semicolon, "Expected ';' after value".to_string())?;
+        self.pos += 1;  // need to skip the semicolon
+
+        Ok(Stmt::Print(expr))
+    }
+
+    fn expr_statement(&mut self) -> Result<Stmt, ParserError> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after value".to_string())?;
+        Ok(Stmt::ExprStmt(expr))
     }
 
     // primary defines the start of the expression, for example this expr is valid "let a = 1000", this is not ") a = 1000"
-    fn primary(&mut self) -> Result<Expr, Error> {
+    fn primary(&mut self) -> Result<Expr, ParserError> {
         if self.match_token(vec![TokenType::Number, TokenType::String, TokenType::Bool]) {
             match self.previous().literal.as_ref().unwrap() {
                 TokenLiteral::Int(val) => return Ok(Expr::Literal(Some(ExprLiteral::Int(*val)))),
@@ -49,10 +91,10 @@ impl Parser {
 
         let token = self.peek();
 
-        Err(self.gen_error(format!("Invalid syntax '{}' in line {}", token.lexeme, token.line), token.clone()))
+        Err(self.gen_error(format!("Invalid syntax '{}' in line {}", token.lexeme, token.line), Some(token.clone())))
     }
 
-    fn unary(&mut self) -> Result<Expr, Error> {
+    fn unary(&mut self) -> Result<Expr, ParserError> {
         if self.match_token(vec![TokenType::Bang, TokenType::Minus]) {
             let operator = match self.previous().ttype {
                 TokenType::Bang => Some(UnaryOp::Bang),
@@ -68,7 +110,7 @@ impl Parser {
     }
 
     // multiplaction and division
-    fn factor(&mut self) -> Result<Expr, Error> {
+    fn factor(&mut self) -> Result<Expr, ParserError> {
         let expr = self.unary()?;
 
         while self.match_token(vec![TokenType::Star, TokenType::Slash]) {
@@ -79,13 +121,13 @@ impl Parser {
             };
 
             let right = self.unary()?;
-            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
+            return Ok(Expr::Binary(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
         Ok(expr)
     }
 
     // Addition and subtraction
-    fn term(&mut self) -> Result<Expr, Error> {
+    fn term(&mut self) -> Result<Expr, ParserError> {
         let expr = self.factor()?;
 
         while self.match_token(vec![TokenType::Minus, TokenType::Plus]) {
@@ -96,13 +138,13 @@ impl Parser {
             };
 
             let right = self.factor()?;
-            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
+            return Ok(Expr::Binary(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
 
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> Result<Expr, Error> {
+    fn comparison(&mut self) -> Result<Expr, ParserError> {
         let expr = self.term()?;
 
         while self.match_token(vec![TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
@@ -115,13 +157,13 @@ impl Parser {
             };
 
             let right = self.term()?;
-            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
+            return Ok(Expr::Binary(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
 
         Ok(expr)
     }
 
-    fn equality(&mut self) -> Result<Expr, Error> {
+    fn equality(&mut self) -> Result<Expr, ParserError> {
         let expr = self.comparison()?;
 
         // if the next token after epxr is == or != it means that expr is part of an equality else its another expr
@@ -133,21 +175,23 @@ impl Parser {
             };
 
             let right = self.comparison()?;
-            return Ok(Expr::BinaryOp(Box::new(expr), operator.unwrap(), Box::new(right)));
+            return Ok(Expr::Binary(Box::new(expr), operator.unwrap(), Box::new(right)));
         }
 
         Ok(expr)
     }
 
-    fn expression(&mut self) -> Result<Expr, Error> {
+    fn expression(&mut self) -> Result<Expr, ParserError> {
         self.equality()
     }
+
+
 }
 
 // helper functions
 impl Parser {
-    fn gen_error(&self, msg: String, token: Token) -> Error {
-        Error::ParserError {
+    fn gen_error(&self, msg: String, token: Option<Token>) -> ParserError {
+        ParserError {
             msg,
             token
         }
@@ -166,7 +210,7 @@ impl Parser {
     }
 
     fn at_end(&self) -> bool {
-        self.pos as usize >= self.tokens.len()
+        self.peek().ttype == TokenType::Eof
     }
 
     fn synchronize(&mut self) {
@@ -195,14 +239,14 @@ impl Parser {
         }
     }
 
-    // runs until it finds token and return ok or it came to EOF and returns parser error with err_msg
-    fn consume(&mut self, ttype: TokenType, err_msg: String) -> Result<(), Error> {
+    // runs until it finds token and return ok or it came to EOF and returns parser ParserError with err_msg
+    fn consume(&mut self, ttype: TokenType, err_msg: String) -> Result<(), ParserError> {
         while !self.at_end() && self.peek().ttype != ttype {
             self.pos += 1;
         }
 
         if self.at_end() {
-            Err(self.gen_error(err_msg, self.peek().clone()))
+            Err(self.gen_error(err_msg, None))
         }
         else { 
             Ok(())
@@ -245,7 +289,7 @@ pub fn print_tree_pretty(expr: Expr) {
 
             print_tree_pretty(*val);
         },
-        Expr::BinaryOp(val1, op, val2) => {
+        Expr::Binary(val1, op, val2) => {
             print_tree_pretty(*val1);
 
             match op {
@@ -285,7 +329,7 @@ pub fn print_tree(expr: Expr) {
 
             print_tree(*val);
         },
-        Expr::BinaryOp(val1, op, val2) => {
+        Expr::Binary(val1, op, val2) => {
             match op {
                 BinaryOp::EqualEqual => print!("== "),
                 BinaryOp::BangEqual => print!("!= "),

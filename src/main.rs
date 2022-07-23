@@ -1,37 +1,22 @@
-use std::{env, fs};
-use std::io::{stdin, stdout, Write, BufRead};
+use std::env;
+use std::io::{stdin, stdout, Write};
 use std::process;
-use interpreter::Scanner;
-use interpreter::Parser;
-use interpreter::expr::*;
-use interpreter::print_tree;
+use scanner::Scanner;
+use parser::Parser;
+use interpreter::Interpreter;
 
-use crate::interpreter::parser::print_tree_pretty;
-
+mod scanner;
+mod parser;
 mod interpreter;
+
+const VERSION: &str = "0.1";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let tree = Expr::BinaryOp(
-        Box::new(Expr::Gropuing(
-            Box::new(Expr::BinaryOp(
-                Box::new(Expr::Literal(Some(ExprLiteral::Int(10)))),
-                BinaryOp::Plus,
-                Box::new( Expr::Literal(Some(ExprLiteral::Float(18.1)))),
-            ))
-        )),
-        BinaryOp::Star,
-        Box::new(Expr::Unary(
-            UnaryOp::Minus,
-            Box::new(Expr::Literal(Some(ExprLiteral::Int(200))))
-        ))
-    );
-    
-    // let tree = Node::new(Expr::Literal(None));
-    print_tree(tree.clone());
-    println!("");
-    print_tree_pretty(tree);
-    println!("");
+    let args = vec![String::from(""), "scripts/test.scr".to_string()];
+
+    // temp name for the language
+    println!("Welcome to LoxScript {}", VERSION);
 
     if args.len() > 2 {
         println!("Usage:\ninterpeter <script_path>");
@@ -41,71 +26,77 @@ fn main() {
         run_prompt();
     } 
     else {
-        let mut scanner = Scanner::new(&args[1]);
+        let mut scanner = Scanner::new();
         let mut parser = Parser::new();
+        let mut interpreter = Interpreter::new();
 
-        match scanner.scan_tokens() {
-            Ok(val) => {
-                let ast = parser.parse(val);
-            },
-            Err(e) => {
-                let src = fs::read_to_string(&args[1]).unwrap();
-                let src: Vec<&str> = src.as_str().split("\n").collect();
-                
-                match e {
-                    interpreter::Error::ScannerError { msg, line, pos} => {
-                        println!("{}", msg);
-                        println!("'{}'", src[line as usize - 1]);
-
-                        for _ in 0..(pos + 1) {
-                            print!(" ");
-                        }
-                        println!("^");
-                    },
-                    _ => {}
-                }
-            }
+        let tokens = scanner.scan_from_file(&args[1]);
+        if tokens.is_err() {
+            let error = tokens.unwrap_err();
+            error.print_msg();
+            return;
         }
 
-        // println!("{:?}", scanner.scan_tokens());
-        // parser.parse(scanner.scan_tokens().unwrap());
+        let tokens = tokens.unwrap();
+        let statements = parser.parse(tokens);
+
+        if statements.is_err() {
+            println!("{:?}", statements.unwrap_err());
+            return;
+        }
+
+        let statements = statements.unwrap();
+        let err = interpreter.interpret(statements);
+
+        if err.is_err() {
+            println!("{:?}", err.is_err());
+            return;
+        }
+
+        // println!("{:?}", value.unwrap());
+
     }
 }
 
 fn run_prompt() {
     let mut input = String::new();
+    let mut scanner = Scanner::new();
+    let mut parser = Parser::new();
+    let mut interpreter = Interpreter::new();
     
-    
-
     loop {
         input.clear();
+        scanner.reset();
+        parser.reset();
+
         print!(">>> ");
         stdout().flush().unwrap();
         stdin().read_line(&mut input).unwrap();
-        let mut scanner = Scanner::from_str(input.clone());
-        let mut parser = Parser::new();
 
-        let tokens = scanner.scan_tokens();
+        let tokens = scanner.scan_from_string(input.clone());
 
-        match tokens {
-            Ok(val) => {
-                let ast = parser.parse(val);
+        // if tokens.is_err() {
+        //     let error = tokens.unwrap_err();
+        //     error.print_msg();
+        //     continue;
+        // }
 
-                match ast {
-                    Ok(val) => {
-                        println!("{:?}", val.clone());
-                        print_tree(val.clone());
-                        println!();
-                        print_tree_pretty(val);
-                        println!();
+        // let tokens = tokens.unwrap();
+        // let ast = parser.parse(tokens);
 
-                    },
-                    Err(e) => println!("{}", e.message()),
-                }
-            },
-            Err(e) => println!("{:?}", e)
-        }
-        // parser.parse(scanner.scan_tokens());
-        // print!("{}", input);
+        // if ast.is_err() {
+        //     println!("{:?}", ast.unwrap_err());
+        //     continue;
+        // }
+
+        // let ast = ast.unwrap();
+        // let value = interpreter.interpret(ast);
+
+        // if value.is_err() {
+        //     println!("{:?}", value.is_err());
+        //     continue;
+        // }
+
+        // println!("{:?}", value.unwrap());
     }
 }

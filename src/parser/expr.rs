@@ -3,7 +3,7 @@ pub enum Expr {
     Literal(Option<ExprLiteral>),
     Gropuing(Box<Expr>),
     Unary(UnaryOp, Box<Expr>),
-    BinaryOp(Box<Expr>, BinaryOp, Box<Expr>)
+    Binary(Box<Expr>, BinaryOp, Box<Expr>)
 }
 
 #[derive(Clone, Debug)]

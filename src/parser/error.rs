@@ -1,13 +1,17 @@
 use crate::scanner::token::*;
 
 #[derive(Debug)]
-pub struct RuntimeError {
+pub struct ParserError {
     pub msg: String,
     pub token: Option<Token>
 }
 
-impl RuntimeError {
+impl ParserError {
     pub fn get_message(&self) -> String {
         self.msg.clone()
+    }
+
+    pub fn print_msg(&self) {
+        
     }
 }

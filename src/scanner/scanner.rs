@@ -1,5 +1,5 @@
 use super::token::*;
-use super::error::Error;
+use super::ScannerError;
 use std::fs;
 
 pub struct Scanner {
@@ -10,29 +10,38 @@ pub struct Scanner {
     tokens: Vec<Token>,
 }
 
-// main logic functions
+
 impl Scanner {
-    pub fn new(source_path: &String) -> Scanner {
+    pub fn new() -> Scanner {
         Scanner {
-            source: fs::read_to_string(source_path).unwrap().chars().collect(),
+            source: Vec::new(),
             pos: 0,
             line: 1,
-            line_pos: 0,
+            line_pos: 0,  // position in current line
             tokens: Vec::new(),
         }
     }
 
-    pub fn from_str(source: String) -> Scanner {
-        Scanner {
-            source: source.chars().collect(),
-            pos: 0,
-            line: 1,
-            line_pos: 0,
-            tokens: Vec::new()
-        }
+    pub fn scan_from_file(&mut self, source_path: &str) -> Result<Vec<Token>, ScannerError> {
+        self.source = fs::read_to_string(source_path).unwrap().chars().collect();
+        self.scan_tokens()
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, Error> {
+    pub fn scan_from_string(&mut self, source: String) -> Result<Vec<Token>, ScannerError> {
+        self.source = source.chars().collect();
+        self.scan_tokens()
+    }
+
+    pub fn reset(&mut self) {
+        self.pos = 0;
+        self.line = 1;
+        self.line_pos = 0;
+        self.tokens.clear();
+    }
+}
+
+impl Scanner {
+    fn scan_tokens(&mut self) -> Result<Vec<Token>, ScannerError> {
         while !self.at_end() {
             match self.scan_token() {
                 Ok(()) => {},
@@ -43,13 +52,14 @@ impl Scanner {
         }
 
         self.add_token(TokenType::Eof, String::from("eof"), None);
+
         Ok(self.tokens.clone())
     }
 
-    fn scan_token(&mut self) -> Result<(), Error> {
+    fn scan_token(&mut self) -> Result<(), ScannerError> {
         let ch = self.source[self.pos as usize];
-        let tmp_pos = 0;
-        self.line_pos = self.pos;
+
+        println!("{} : {}", self.line, self.line_pos);
 
         match ch {
             '(' => {
@@ -209,9 +219,13 @@ impl Scanner {
                 let mut buffer = String::new();
                 let mut closed = false;
 
-                // will break on loop without goind forward
+                // cant change self.line and self.line_pos beacuse the error message needs the position of the start of the string aka '"'
+                let mut tmp_line = self.line;
+                let mut tmp_line_pos = self.line_pos;
+
+                // need to skip token or it will break on loop without going forward
                 self.pos += 1;
-                self.line_pos += 1;
+                // self.line_pos += 1;
 
                 while !self.at_end() {
                     let ch = self.get(self.pos);
@@ -219,33 +233,36 @@ impl Scanner {
                     if ch == '"' {
                         closed = true;
                         self.pos += 1; // doing this to skip over the closing quotation marks
-                        self.line_pos += 1;
+                        tmp_line_pos += 1;
                         break;
                     }
                     else if ch == '\n' {
-                        self.line += 1;
-                        self.line_pos = 1;
+                        tmp_line += 1;
+                        tmp_line_pos = 0;
                     }
 
                     buffer.push(ch);
                     self.pos += 1;
-                    self.line_pos += 1;
+                    tmp_line_pos += 1;
                 }
 
                 if closed == false {
                     return Err(self.gen_error(format!("String in line {} is not closed", string_start)));
                 }
-                else {
-                    let mut lexeme = String::from('"');
-                    lexeme.push_str(&buffer);
-                    lexeme.push('"');
-                    self.add_token(TokenType::String, lexeme, Some(TokenLiteral::Str(buffer)));
-                }
+
+                let mut lexeme = String::from('"');
+
+                lexeme.push_str(&buffer);
+                lexeme.push('"');
+
+                self.add_token(TokenType::String, lexeme, Some(TokenLiteral::Str(buffer)));
+                self.line = tmp_line;
+                self.line_pos = tmp_line_pos;
             }
             '\n' => {
                 self.pos += 1;
                 self.line += 1;
-                self.line_pos = 1;
+                self.line_pos = 0;
             }
             '0'..='9' => {
                 let mut buffer = String::new();
@@ -369,11 +386,15 @@ impl Scanner {
         self.pos as usize >= self.source.len()
     }
 
-    fn gen_error(&self, msg: String) -> Error {
-        Error::ScannerError {
+    fn gen_error(&self, msg: String) -> ScannerError {
+        let source: String = self.source.clone().into_iter().collect();
+        let source: Vec<&str> = source.split("\n").collect();
+
+        ScannerError {
             msg,
             line: self.line,
-            pos: self.line_pos
+            pos: self.line_pos,
+            source_line: source[self.line as usize - 1].to_string()
         }
     }
 }

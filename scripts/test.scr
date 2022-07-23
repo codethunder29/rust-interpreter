@@ -1,2 +1,2 @@
-let a = 100.aa ;
-let s = "hello world";
+
+print "Hello World";
